@@ -11,6 +11,10 @@
 | Android | [`android/`](android/) | `.aar` | 可构建（已验证 `assembleRelease` → `.aar`）；真机验证待做 |
 | iOS | [`ios/`](ios/) | `.h` + `.m` 源码（放入 `Assets/Plugins/iOS/`） | 参考实现；需 macOS/Xcode 构建 + 真机验证 |
 
+> **原生能力**（权限、定位、媒体选择、设备信息、振动…）的设计见
+> [docs/native-capabilities.zh-CN.md](docs/native-capabilities.zh-CN.md)——契约 + 干净层 / `.unity`
+> 两层划分。（设计已定稿；实现分批进行。）
+
 ## Android
 
 `android/` 是一个 **Android Library** 模块，实现 NativeRelay 的 C# 侧 `AndroidChannel` 经 JNI

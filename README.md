@@ -12,6 +12,10 @@ binary and drop into your Unity app.
 | Android | [`android/`](android/) | `.aar` | Builds (verified: `assembleRelease` → `.aar`); on-device verification pending |
 | iOS | [`ios/`](ios/) | `.h` + `.m` source (drop into `Assets/Plugins/iOS/`) | Reference impl; needs macOS/Xcode build + on-device verification |
 
+> **Native capabilities** (permissions, location, media pickers, device info, vibrate, …) are
+> designed in [docs/native-capabilities.md](docs/native-capabilities.md) — contract + the
+> clean / `.unity` two-layer split. (Design fixed; implementation in batches.)
+
 ## Android
 
 `android/` is an **Android Library** module implementing the Java contract that NativeRelay's
