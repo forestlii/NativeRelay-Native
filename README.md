@@ -9,8 +9,8 @@ binary and drop into your Unity app.
 
 | Platform | Path | Output | Status |
 |---|---|---|---|
-| Android | [`android/`](android/) | `.aar` | Reference project — builds; on-device verification pending |
-| iOS | `ios/` *(planned)* | `.framework` / `.a` | Not started |
+| Android | [`android/`](android/) | `.aar` | Builds (verified: `assembleRelease` → `.aar`); on-device verification pending |
+| iOS | [`ios/`](ios/) | `.h` + `.m` source (drop into `Assets/Plugins/iOS/`) | Reference impl; needs macOS/Xcode build + on-device verification |
 
 ## Android
 
@@ -60,6 +60,14 @@ Requires **Android Studio** (JDK 17, Android SDK 34). Toolchain: AGP 8.5.2 / Gra
 
 > Big binary (audio/image): don't push raw bytes through `data`. Save to a file natively and
 > return the **path** as `data`; load it Unity-side.
+
+## iOS
+
+`ios/Source/` implements the C ABI that NativeRelay's C# `IosChannel` calls over P/Invoke
+(`NativeRelayChannel_Init / _Send / _Dispose`). Integration is a **source drop-in**: copy the
+`.h` + `.m` into `Assets/Plugins/iOS/` and Unity compiles them into the generated Xcode app —
+no `.framework`/`.a` to manage. Building requires **macOS + Xcode**; see [`ios/`](ios/) for
+details and the contract-alignment notes.
 
 ## Tools
 

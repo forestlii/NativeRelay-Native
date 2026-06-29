@@ -8,8 +8,8 @@
 
 | 平台 | 路径 | 产物 | 状态 |
 |---|---|---|---|
-| Android | [`android/`](android/) | `.aar` | 参考工程——可构建；真机验证待做 |
-| iOS | `ios/`（计划中） | `.framework` / `.a` | 未开始 |
+| Android | [`android/`](android/) | `.aar` | 可构建（已验证 `assembleRelease` → `.aar`）；真机验证待做 |
+| iOS | [`ios/`](ios/) | `.h` + `.m` 源码（放入 `Assets/Plugins/iOS/`） | 参考实现；需 macOS/Xcode 构建 + 真机验证 |
 
 ## Android
 
@@ -58,6 +58,13 @@
 
 > 大块二进制（音频/图片）：别把原始字节塞进 `data`。原生侧存成文件、把**路径**作为 `data` 回来，
 > Unity 侧再按路径加载。
+
+## iOS
+
+`ios/Source/` 实现 NativeRelay 的 C# 侧 `IosChannel` 经 P/Invoke 调用的 C ABI
+（`NativeRelayChannel_Init / _Send / _Dispose`）。集成方式是**源码直接放入**：把 `.h` + `.m` 拷进
+`Assets/Plugins/iOS/`，Unity 会把它们编进生成的 Xcode 工程——无需管理 `.framework`/`.a`。
+构建需 **macOS + Xcode**；详情与契约对照说明见 [`ios/`](ios/)。
 
 ## 工具
 
