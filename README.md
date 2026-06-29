@@ -61,6 +61,12 @@ Requires **Android Studio** (JDK 17, Android SDK 34). Toolchain: AGP 8.5.2 / Gra
 > Big binary (audio/image): don't push raw bytes through `data`. Save to a file natively and
 > return the **path** as `data`; load it Unity-side.
 
+## Tools
+
+- [`tools/codegen/`](tools/codegen/) — generate the `int` command codes for **C# / Java / Lua /
+  Objective-C** from one `commands.json`, so a multi-platform project never hand-aligns them
+  again. Includes a `--check` CI guard. See [tools/codegen/README.md](tools/codegen/README.md).
+
 ## License
 
 MIT © 2026 Likeon

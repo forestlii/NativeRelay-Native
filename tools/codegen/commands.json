@@ -1,0 +1,11 @@
+{
+  "_comment": "Single source of truth for NativeRelay command codes. EDIT THIS, then run gen.py. These are PLACEHOLDER example commands — keep your real (business-named) list in your own private project, not here.",
+  "enumName": "RelayCommand",
+  "csharpNamespace": "Likeon.NativeRelay.Sample",
+  "javaPackage": "com.likeon.nativerelay.sample",
+  "commands": [
+    { "name": "StartRecord", "value": 1, "desc": "Start recording (example placeholder)" },
+    { "name": "StopRecord",  "value": 2, "desc": "Stop recording" },
+    { "name": "Recognize",   "value": 3, "desc": "Run recognition on the payload" }
+  ]
+}

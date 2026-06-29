@@ -59,6 +59,12 @@
 > 大块二进制（音频/图片）：别把原始字节塞进 `data`。原生侧存成文件、把**路径**作为 `data` 回来，
 > Unity 侧再按路径加载。
 
+## 工具
+
+- [`tools/codegen/`](tools/codegen/) —— 用一份 `commands.json` 生成 **C# / Java / Lua /
+  Objective-C** 四端的 `int` 命令码，让多端项目不再手工对齐；含 `--check` CI guard。
+  详见 [tools/codegen/README.zh-CN.md](tools/codegen/README.zh-CN.md)。
+
 ## 许可
 
 MIT © 2026 Likeon
