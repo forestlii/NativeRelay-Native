@@ -26,7 +26,11 @@ import com.likeon.nativerelay.haptic.Haptics;
 import com.likeon.nativerelay.internal.AppContext;
 import com.likeon.nativerelay.location.LocationOnce;
 import com.likeon.nativerelay.media.AlbumSaver;
+import com.likeon.nativerelay.media.CodeScanner;
+import com.likeon.nativerelay.media.MediaPicker;
+import com.likeon.nativerelay.media.PhotoCapture;
 import com.likeon.nativerelay.net.NetworkStatus;
+import com.likeon.nativerelay.permission.PermissionRequest;
 import com.likeon.nativerelay.system.SettingsOpener;
 
 import java.util.concurrent.ExecutorService;
@@ -89,10 +93,9 @@ public class NativeRelayChannel {
 
     /**
      * Dispatch a command to a built-in capability, returning {@code (code, data)}. Command codes
-     * come from the generated {@link RelayCommand} (tools/codegen). Commands 1–6 (permission /
-     * location / media / album / camera / scan) arrive in later batches; an unknown command echoes
-     * so the template stays usable for your own custom commands. For big binary (audio/image),
-     * return a file PATH as data, not raw bytes.
+     * come from the generated {@link RelayCommand} (tools/codegen). An unknown command echoes so the
+     * template stays usable for your own custom commands. For big binary (audio/image), return a
+     * file PATH as data, not raw bytes. (ScanCode is a documented stub — see CodeScanner.)
      */
     private RelayResult handle(int command, String payload) throws Exception {
         switch (command) {
@@ -102,6 +105,10 @@ public class NativeRelayChannel {
             case RelayCommand.OPEN_SETTINGS:      return SettingsOpener.open(appContext(), payload);
             case RelayCommand.GET_LOCATION_ONCE:  return LocationOnce.get(appContext());
             case RelayCommand.SAVE_TO_ALBUM:      return AlbumSaver.save(appContext(), payload);
+            case RelayCommand.REQUEST_PERMISSION: return PermissionRequest.request(appContext(), payload);
+            case RelayCommand.PICK_MEDIA:         return MediaPicker.pick(appContext(), payload);
+            case RelayCommand.CAPTURE_PHOTO:      return PhotoCapture.capture(appContext());
+            case RelayCommand.SCAN_CODE:          return CodeScanner.scan(appContext());
             default:
                 return RelayResult.ok(payload != null ? payload : "");
         }

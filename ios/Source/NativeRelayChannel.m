@@ -9,9 +9,13 @@
  * Commands 1–6 (permission / location / media / album / camera / scan) arrive in later batches.
  *
  * ⚠️ NOT compiled / device-verified — iOS builds need macOS + Xcode (authored on Windows).
- *    Reference implementation. Frameworks to link in the iOS build: UIKit, SystemConfiguration,
- *    AudioToolbox, StoreKit, CoreLocation, Photos (Foundation is implicit). Info.plist keys:
- *    NSLocationWhenInUseUsageDescription (location), NSPhotoLibraryAddUsageDescription (save).
+ *    Reference implementation. Frameworks to link: UIKit, SystemConfiguration, AudioToolbox,
+ *    StoreKit, CoreLocation, Photos, AVFoundation, UserNotifications (Foundation is implicit).
+ *    Info.plist keys: NSLocationWhenInUseUsageDescription, NSPhotoLibraryAddUsageDescription,
+ *    NSCameraUsageDescription, NSMicrophoneUsageDescription.
+ *    Note: PickMedia / CapturePhoto / ScanCode need a presented UIViewController; they are left as
+ *    documented reference stubs here (present on keyWindow.rootViewController) — implement + verify
+ *    on a Mac. Android implements them fully.
  *    Drop this .m + the two .h into Assets/Plugins/iOS/ and Unity compiles them into the app.
  */
 #import <Foundation/Foundation.h>
@@ -21,6 +25,8 @@
 #import <StoreKit/StoreKit.h>
 #import <CoreLocation/CoreLocation.h>
 #import <Photos/Photos.h>
+#import <AVFoundation/AVFoundation.h>
+#import <UserNotifications/UserNotifications.h>
 #import <netinet/in.h>
 #import <string.h>
 #import "NativeRelayChannel.h"
@@ -196,6 +202,59 @@ static NSString* NativeRelay_saveToAlbum(NSString* path, int* outCode) {
     return nil;
 }
 
+/* RequestPermission -> 1=granted / 0=denied. No UIViewController needed (the system presents the
+ * prompt). Blocks the worker thread on a semaphore for the async authorization callback. */
+static NSString* NativeRelay_requestPermission(NSString* key, int* outCode) {
+    dispatch_semaphore_t sem = dispatch_semaphore_create(0);
+    __block BOOL granted = NO;
+
+    if ([key isEqualToString:@"camera"] || [key isEqualToString:@"microphone"]) {
+        AVMediaType type = [key isEqualToString:@"camera"] ? AVMediaTypeVideo : AVMediaTypeAudio;
+        [AVCaptureDevice requestAccessForMediaType:type completionHandler:^(BOOL ok) {
+            granted = ok;
+            dispatch_semaphore_signal(sem);
+        }];
+    } else if ([key isEqualToString:@"photos"]) {
+        if (@available(iOS 14.0, *)) {
+            [PHPhotoLibrary requestAuthorizationForAccessLevel:PHAccessLevelAddOnly
+                                                       handler:^(PHAuthorizationStatus s) {
+                granted = (s == PHAuthorizationStatusAuthorized || s == PHAuthorizationStatusLimited);
+                dispatch_semaphore_signal(sem);
+            }];
+        } else {
+            [PHPhotoLibrary requestAuthorization:^(PHAuthorizationStatus s) {
+                granted = (s == PHAuthorizationStatusAuthorized);
+                dispatch_semaphore_signal(sem);
+            }];
+        }
+    } else if ([key isEqualToString:@"notification"]) {
+        UNAuthorizationOptions opts = UNAuthorizationOptionAlert | UNAuthorizationOptionSound | UNAuthorizationOptionBadge;
+        [UNUserNotificationCenter.currentNotificationCenter requestAuthorizationWithOptions:opts
+                                                                         completionHandler:^(BOOL ok, NSError* e) {
+            granted = ok;
+            dispatch_semaphore_signal(sem);
+        }];
+    } else if ([key isEqualToString:@"location"]) {
+        *outCode = 0;
+        return @"request location via GetLocationOnce (CLLocationManager)";
+    } else {
+        *outCode = 0;
+        return [NSString stringWithFormat:@"unknown permission: %@", key];
+    }
+
+    dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(120 * NSEC_PER_SEC)));
+    *outCode = granted ? 1 : 0;
+    return granted ? @"granted" : @"denied";
+}
+
+/* PickMedia / CapturePhoto / ScanCode need a presented UIViewController (on
+ * keyWindow.rootViewController) + a delegate, then copy the result to NSTemporaryDirectory and
+ * return the path. Left as a documented reference stub — implement and verify on a Mac. */
+static NSString* NativeRelay_vcStub(NSString* what, int* outCode) {
+    *outCode = 0;
+    return [NSString stringWithFormat:@"%@: iOS reference stub — present a UIViewController (see docs)", what];
+}
+
 /* Dispatch a command to a built-in capability. Returns the result text/json (or nil) and sets
  * *outCode. Unknown commands echo so the template stays usable for custom commands. */
 static NSString* NativeRelay_handle(int command, NSString* payload, int* outCode) {
@@ -207,8 +266,12 @@ static NSString* NativeRelay_handle(int command, NSString* payload, int* outCode
         case RelayCommandOpenSettings:     return NativeRelay_openSettings(payload, outCode);
         case RelayCommandGetLocationOnce:  return NativeRelay_locationOnce(outCode);
         case RelayCommandSaveToAlbum:      return NativeRelay_saveToAlbum(payload, outCode);
+        case RelayCommandRequestPermission: return NativeRelay_requestPermission(payload, outCode);
+        case RelayCommandPickMedia:        return NativeRelay_vcStub(@"PickMedia (PHPickerViewController)", outCode);
+        case RelayCommandCapturePhoto:     return NativeRelay_vcStub(@"CapturePhoto (UIImagePickerController)", outCode);
+        case RelayCommandScanCode:         return NativeRelay_vcStub(@"ScanCode (AVCaptureMetadataOutput)", outCode);
         default:
-            return payload ?: @"";  // commands 1, 3, 5, 6 arrive in later batches
+            return payload ?: @"";
     }
 }
 

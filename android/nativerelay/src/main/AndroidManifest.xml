@@ -3,4 +3,20 @@
      (install-time) permission, auto-granted; it merges into the consuming app's manifest. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.VIBRATE" />
+
+    <application>
+        <!-- Transparent proxy Activity for permission / pick / capture (no Unity Activity needed). -->
+        <activity
+            android:name="com.likeon.nativerelay.ui.NativeRelayProxyActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:exported="false" />
+
+        <!-- Zero-dependency content provider so the camera gets a content:// output Uri without
+             androidx FileProvider. -->
+        <provider
+            android:name="com.likeon.nativerelay.internal.NativeRelayFileProvider"
+            android:authorities="${applicationId}.nativerelayfiles"
+            android:exported="false"
+            android:grantUriPermissions="true" />
+    </application>
 </manifest>

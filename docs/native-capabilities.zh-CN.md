@@ -32,12 +32,12 @@ iOS 没有包命名空间（C 符号是全局的），所以同样的两层用**
 
 | cmd | 能力 | payload(输入) | code(返回) | data(返回) | 层 | iOS | Android |
 |---|---|---|---|---|---|---|---|
-| 1 | **RequestPermission** 权限请求 | 权限名：`camera`/`microphone`/`photos`/`location`/`notification` | 1=授权, 0=拒绝, 2=受限 | 状态文本 | **绑定**（Android 需 Activity） | 各框架授权 API | `ActivityCompat.requestPermissions` |
+| 1 | **RequestPermission** 权限请求 | 权限名：`camera`/`microphone`/`photos`/`location`/`notification` | 1=授权, 0=拒绝 | 状态文本 | 干净（代理 Activity） | 各框架授权 API | 代理 Activity + `requestPermissions` |
 | 2 | **GetLocationOnce** 一次定位 | null（或精度提示） | 1=ok, 0=拒绝/失败, Timeout | json `{lat,lng,acc}` | 干净 | `CLLocationManager`（一次） | `LocationManager`（系统；**非** Fused——避免 Play Services 依赖） |
-| 3 | **PickMedia** 选图/视频 | `image` / `video` | 1=选中, 0=取消 | 文件路径（拷进沙盒） | **绑定**（弹选择器） | `PHPickerViewController` | Photo Picker / `ACTION_PICK` |
+| 3 | **PickMedia** 选图/视频 | `image` / `video` | 1=选中, 0=取消 | 文件路径（拷进缓存） | 干净（代理 Activity） | `PHPickerViewController` | 代理 Activity + `ACTION_GET_CONTENT` |
 | 4 | **SaveToAlbum** 存相册 | 要保存的文件路径 | 1=已存, 0=失败 | 资源 id（可选） | 干净 | `PHPhotoLibrary` | `MediaStore` |
-| 5 | **CapturePhoto** 拍照 | null（或 `front`/`back`） | 1=拍到, 0=取消 | 文件路径 | **绑定**（弹相机） | `UIImagePickerController` | `ACTION_IMAGE_CAPTURE` |
-| 6 | **ScanCode** 扫码 | null（或码制） | 1=扫到, 0=取消 | 扫到的字符串 | **绑定**（相机预览 UI） | `AVCaptureMetadataOutput` | CameraX + MLKit |
+| 5 | **CapturePhoto** 拍照 | null（或 `front`/`back`） | 1=拍到, 0=取消 | 文件路径 | 干净（代理 Activity） | `UIImagePickerController` | 代理 Activity + `ACTION_IMAGE_CAPTURE` + 自带 ContentProvider |
+| 6 | **ScanCode** 扫码 | null（或码制） | 1=扫到, 0=取消 | 扫到的字符串 | ⚠️ Android 需第三方 | `AVCaptureMetadataOutput`（系统） | **需 MLKit/ZXing**（无系统 intent）——桩 |
 | 7 | **GetDeviceInfo** 设备信息 | null | 1=ok | json（见下） | 干净 | `UIDevice`/`UIScreen`/`Locale` | `Build`/`Configuration`/`DisplayMetrics` |
 | 8 | **GetNetworkStatus** 网络状态 | null | 1=ok | `wifi`/`cellular`/`ethernet`/`none` | 干净 | `NWPathMonitor` | `ConnectivityManager` |
 | 9 | **Vibrate** 振动 | 预设 `light`/`medium`/`heavy` 或 `ms:200` | 1=ok, 0=不支持 | — | 干净 | `UIImpactFeedbackGenerator`/`CoreHaptics` | `Vibrator`/`VibratorManager` |
@@ -57,9 +57,16 @@ iOS 没有包命名空间（C 符号是全局的），所以同样的两层用**
   （`ACCESS_FINE/COARSE_LOCATION`）和 Q 以下的相册写入（`WRITE_EXTERNAL_STORAGE`，`maxSdkVersion=28`）
   是可选 + 敏感的，由你按需加进*你 app 的* manifest。iOS 需对应 Info.plist 用途串
   （`NSLocationWhenInUseUsageDescription`、`NSPhotoLibraryAddUsageDescription`）。
-- **需 Activity 的能力（1 的安卓侧、3、5、6）要 Unity Activity。** 安卓上运行时权限请求和
-  `startActivityForResult` 必须在 `Activity` 上发起、并接收结果回调——所以绑定层去取
-  `UnityPlayer.currentActivity`。这正是 `.unity` 子包存在的理由。
+- **更正——这些能力其实不需要 Unity Activity。** 权限/选图/拍照确实需要*一个* Activity（发起
+  `requestPermissions`/`startActivityForResult`），但库自带一个**透明代理 Activity**
+  （`ui.NativeRelayProxyActivity`）在自己的生命周期里干活、经 `PendingRequests` 把结果交回。它用
+  application Context 启动，**不需要 `UnityPlayer.currentActivity`、零 Unity 耦合**——所以仍是干净层。
+  因此 `.unity` 绑定子包对这些系统能力*用不上*；留给真正强制要 `currentActivity` 的 SDK（阿里云那类）。
+- **Android 的 ScanCode 是桩。** 安卓没有系统扫码 intent，真扫码要第三方解码库（MLKit/ZXing）+ 相机预览，
+  会破坏零依赖红线——所以 `CodeScanner` 返回一个注明的"未实现"结果。iOS 可纯系统做
+  （`AVCaptureMetadataOutput`），那边留参考桩。
+- **`CapturePhoto` 用库自带的 `ContentProvider`**（`internal.NativeRelayFileProvider`）给相机一个
+  `content://` 输出 Uri——避免 androidx `FileProvider` 依赖。
 - **`GetDeviceInfo` json**（拟）：`{model, manufacturer, os, osVersion, sdkInt?, lang, totalMemMB,
   screenW, screenH, dpi}`。**安全区 inset 需要 window/Activity**（iOS key window、Android
   `DisplayCutout`），故标为绑定层附加项，不进干净的设备信息调用。
@@ -75,8 +82,9 @@ iOS 没有包命名空间（C 符号是全局的），所以同样的两层用**
    iOS 参考源码已写（需 Mac）。
 2. **批次 B —— 干净但需权限：✅ 已完成。** 2 一次定位（系统 `LocationManager`）、4 存相册（`MediaStore`）。
    Android 已实现 + `assembleRelease` 验证；iOS 参考（CoreLocation / Photos）已写——需 Mac。
-3. **批次 C —— 绑定层（Activity/VC + 权限）：** 1 权限请求、3 选图、5 拍照、6 扫码。
-   引入 `.unity` 子包 + `currentActivity` 管线。扫码最重（相机预览 UI）。
+3. **批次 C —— Activity 类（用代理 Activity，**非** `.unity`）：✅ 已完成。** 1 权限、3 选图、5 拍照
+   用透明代理 Activity（零 Unity 耦合）+ 自带 ContentProvider 在 Android 实现，`assembleRelease` 验证。
+   6 扫码是注明的桩（需 MLKit/ZXing）。iOS：权限是真实参考；选图/拍照/扫码是参考桩（需 present VC——Mac 验证）。
 
 每批：在 codegen `commands.json` 定命令 → 实现干净/绑定 Java → 实现 ObjC → Android `assembleRelease`
 验证可编译 → 提交。iOS 保持参考状态（待 Mac 验证）。
@@ -88,7 +96,14 @@ iOS 没有包命名空间（C 符号是全局的），所以同样的两层用**
   构建验证**。命令码由 `tools/codegen` 生成到四端。
 - **批 B —— 已完成。** 一次定位（系统 `LocationManager`，无 Play Services）/ 存相册（`MediaStore`）：
   Android 已实现并 `assembleRelease` 验证；iOS 参考（CoreLocation / Photos）已写——需 macOS/Xcode。
-- **批 C —— 待做**（需 Activity：权限请求 / 选图 / 拍照 / 扫码 + `.unity` 层）。
+- **批 C —— 已完成（Android）。** 权限 / 选图 / 拍照 用透明代理 Activity（`ui.NativeRelayProxyActivity`）
+  + 零依赖 ContentProvider——**不需 Unity Activity、不依赖 androidx**——`assembleRelease` 验证。扫码是
+  注明的桩（需 MLKit/ZXing）。iOS：权限真实参考；选图/拍照/扫码参考桩（需 present VC——Mac 验证）。
+- **架构更正：** 代理 Activity 法意味着 `.unity` 绑定层对这 10 个系统能力*都用不上*——全是干净层。
+  `.unity` 留给强制要 `currentActivity` 的 SDK。
+
+10 个能力现已全部在 Android 实现（9 个完整 + 扫码桩）并 `assembleRelease` 验证。真机验证（弹框、
+相机、选择器真正返回）仍是你的步骤——编译通过 ≠ 运行正确。
 
 ## 许可
 
