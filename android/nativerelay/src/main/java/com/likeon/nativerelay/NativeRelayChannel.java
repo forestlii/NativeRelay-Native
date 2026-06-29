@@ -24,6 +24,8 @@ import android.content.Context;
 import com.likeon.nativerelay.device.DeviceInfo;
 import com.likeon.nativerelay.haptic.Haptics;
 import com.likeon.nativerelay.internal.AppContext;
+import com.likeon.nativerelay.location.LocationOnce;
+import com.likeon.nativerelay.media.AlbumSaver;
 import com.likeon.nativerelay.net.NetworkStatus;
 import com.likeon.nativerelay.system.SettingsOpener;
 
@@ -98,6 +100,8 @@ public class NativeRelayChannel {
             case RelayCommand.GET_NETWORK_STATUS: return RelayResult.ok(NetworkStatus.get(appContext()));
             case RelayCommand.VIBRATE:            return Haptics.vibrate(appContext(), payload);
             case RelayCommand.OPEN_SETTINGS:      return SettingsOpener.open(appContext(), payload);
+            case RelayCommand.GET_LOCATION_ONCE:  return LocationOnce.get(appContext());
+            case RelayCommand.SAVE_TO_ALBUM:      return AlbumSaver.save(appContext(), payload);
             default:
                 return RelayResult.ok(payload != null ? payload : "");
         }

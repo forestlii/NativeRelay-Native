@@ -36,7 +36,7 @@ Command codes are the [`tools/codegen`](../tools/codegen/) source of truth (one 
 | cmd | Capability | payload (in) | code (out) | data (out) | Layer | iOS | Android |
 |---|---|---|---|---|---|---|---|
 | 1 | **RequestPermission** | perm key: `camera`/`microphone`/`photos`/`location`/`notification` | 1=granted, 0=denied, 2=restricted | status text | **binding** (Android needs Activity) | per-framework authorization API | `ActivityCompat.requestPermissions` |
-| 2 | **GetLocationOnce** | null (or accuracy hint) | 1=ok, 0=denied/fail, Timeout | json `{lat,lng,acc}` | clean | `CLLocationManager` (one-shot) | `FusedLocationProviderClient` |
+| 2 | **GetLocationOnce** | null (or accuracy hint) | 1=ok, 0=denied/fail, Timeout | json `{lat,lng,acc}` | clean | `CLLocationManager` (one-shot) | `LocationManager` (system; **not** Fused — avoids a Play Services dep) |
 | 3 | **PickMedia** | `image` / `video` | 1=picked, 0=cancelled | file path (copied to sandbox) | **binding** (present picker) | `PHPickerViewController` | Photo Picker / `ACTION_PICK` |
 | 4 | **SaveToAlbum** | file path to save | 1=saved, 0=fail | saved asset id (opt) | clean | `PHPhotoLibrary` | `MediaStore` |
 | 5 | **CapturePhoto** | null (or `front`/`back`) | 1=captured, 0=cancelled | file path | **binding** (present camera) | `UIImagePickerController` | `ACTION_IMAGE_CAPTURE` |
@@ -57,6 +57,11 @@ Core (an SDK)** → that path belongs to the binding layer; in-app review is not
 - **Permission is a prerequisite, not automatic.** `GetLocationOnce` needs location permission,
   `PickMedia`/`SaveToAlbum` need photos permission, `CapturePhoto`/`ScanCode` need camera. Call
   `RequestPermission` first; these capabilities return `0` if permission is missing.
+- **Sensitive permissions are NOT declared in the library manifest.** Only `VIBRATE` (harmless,
+  install-time) ships in the `.aar` manifest. Location (`ACCESS_FINE/COARSE_LOCATION`) and pre-Q
+  album writes (`WRITE_EXTERNAL_STORAGE`, `maxSdkVersion=28`) are optional + sensitive, so you add
+  them to *your app's* manifest only if you use those capabilities. iOS needs the matching
+  Info.plist usage strings (`NSLocationWhenInUseUsageDescription`, `NSPhotoLibraryAddUsageDescription`).
 - **Activity-bound capabilities (1 Android side, 3, 5, 6) need the Unity Activity.** On Android,
   runtime permission requests and `startActivityForResult` must run on an `Activity` and receive
   the result callback — so the binding layer grabs `UnityPlayer.currentActivity`. This is exactly
@@ -77,7 +82,9 @@ needs a Mac):
 1. **Batch A — clean & light (Android verifiable now): ✅ DONE.** 7 DeviceInfo, 8 Network,
    9 Vibrate, 10 OpenSettings(app/notification). No Activity, no permission prompts. Android
    implemented + `assembleRelease`-verified; iOS reference source written (needs a Mac).
-2. **Batch B — clean but permission-gated:** 2 GetLocationOnce, 4 SaveToAlbum.
+2. **Batch B — clean but permission-gated: ✅ DONE.** 2 GetLocationOnce (system `LocationManager`),
+   4 SaveToAlbum (`MediaStore`). Android implemented + `assembleRelease`-verified; iOS reference
+   (CoreLocation / Photos) written — needs a Mac.
 3. **Batch C — binding layer (Activity/VC + permission):** 1 RequestPermission, 3 PickMedia,
    5 CapturePhoto, 6 ScanCode. Introduces the `.unity` sub-package + `currentActivity` plumbing.
    ScanCode is the heaviest (camera preview UI).
@@ -91,7 +98,10 @@ ObjC → Android `assembleRelease` to verify it compiles → commit. iOS stays r
   implemented and **`assembleRelease`-verified** (capability classes in the `.aar`, `VIBRATE` in
   the merged manifest, minSdk 23); iOS reference implementation written — **needs macOS/Xcode to
   build/verify**. Command codes generated into all four ends by `tools/codegen`.
-- **Batch B / C — pending** (location, album, then the Activity-bound permission/picker/camera/scan).
+- **Batch B — done.** GetLocationOnce (system `LocationManager`, no Play Services) /
+  SaveToAlbum (`MediaStore`): Android implemented and `assembleRelease`-verified; iOS reference
+  (CoreLocation / Photos) written — needs macOS/Xcode.
+- **Batch C — pending** (Activity-bound: permission request / media picker / camera / scan + the `.unity` layer).
 
 ## License
 

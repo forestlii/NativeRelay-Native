@@ -10,14 +10,17 @@
  *
  * ⚠️ NOT compiled / device-verified — iOS builds need macOS + Xcode (authored on Windows).
  *    Reference implementation. Frameworks to link in the iOS build: UIKit, SystemConfiguration,
- *    AudioToolbox, StoreKit (Foundation is implicit). Drop this .m + the two .h into
- *    Assets/Plugins/iOS/ and Unity compiles them into the generated Xcode app.
+ *    AudioToolbox, StoreKit, CoreLocation, Photos (Foundation is implicit). Info.plist keys:
+ *    NSLocationWhenInUseUsageDescription (location), NSPhotoLibraryAddUsageDescription (save).
+ *    Drop this .m + the two .h into Assets/Plugins/iOS/ and Unity compiles them into the app.
  */
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 #import <SystemConfiguration/SystemConfiguration.h>
 #import <AudioToolbox/AudioToolbox.h>
 #import <StoreKit/StoreKit.h>
+#import <CoreLocation/CoreLocation.h>
+#import <Photos/Photos.h>
 #import <netinet/in.h>
 #import <string.h>
 #import "NativeRelayChannel.h"
@@ -118,6 +121,81 @@ static NSString* NativeRelay_openSettings(NSString* payload, int* outCode) {
     return nil;
 }
 
+/* One-shot CoreLocation delegate. The manager holds its delegate weakly, so we keep instances
+ * alive in gLocDelegates until the request finishes. */
+@interface NRLocationDelegate : NSObject <CLLocationManagerDelegate>
+@property (nonatomic, strong) CLLocationManager* manager;
+@property (nonatomic, strong) dispatch_semaphore_t sem;
+@property (nonatomic, strong) CLLocation* result;
+@end
+
+@implementation NRLocationDelegate
+- (void)locationManager:(CLLocationManager*)m didUpdateLocations:(NSArray<CLLocation*>*)locs {
+    self.result = locs.lastObject;
+    dispatch_semaphore_signal(self.sem);
+}
+- (void)locationManager:(CLLocationManager*)m didFailWithError:(NSError*)error {
+    dispatch_semaphore_signal(self.sem);
+}
+@end
+
+static NSMutableArray<NRLocationDelegate*>* gLocDelegates = nil;
+
+/* GetLocationOnce -> json {lat,lng,acc}. Needs ACCESS authorization + Info.plist usage string.
+ * CoreLocation needs a run loop, so the manager lives on the main queue; the worker thread blocks
+ * on a semaphore for one fix (with a timeout). Needs NSLocationWhenInUseUsageDescription. */
+static NSString* NativeRelay_locationOnce(int* outCode) {
+    dispatch_semaphore_t sem = dispatch_semaphore_create(0);
+    NRLocationDelegate* del = [NRLocationDelegate new];
+    del.sem = sem;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (gLocDelegates == nil) gLocDelegates = [NSMutableArray array];
+        [gLocDelegates addObject:del];  // keep alive (manager.delegate is weak)
+        del.manager = [[CLLocationManager alloc] init];
+        del.manager.delegate = del;
+        [del.manager requestWhenInUseAuthorization];
+        [del.manager requestLocation];
+    });
+
+    long timedOut = dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(10 * NSEC_PER_SEC)));
+    CLLocation* loc = del.result;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        del.manager.delegate = nil;
+        [gLocDelegates removeObject:del];
+    });
+
+    if (timedOut != 0 || loc == nil) { *outCode = 0; return @"location timeout"; }
+    *outCode = 1;
+    return [NSString stringWithFormat:@"{\"lat\":%f,\"lng\":%f,\"acc\":%f}",
+            loc.coordinate.latitude, loc.coordinate.longitude, loc.horizontalAccuracy];
+}
+
+static BOOL NativeRelay_isVideoPath(NSString* path) {
+    NSString* p = path.lowercaseString;
+    return [p hasSuffix:@".mp4"] || [p hasSuffix:@".mov"] || [p hasSuffix:@".m4v"];
+}
+
+/* SaveToAlbum -> saves a file to the photo library. performChangesAndWait is synchronous, which
+ * fits the worker-thread model. Needs NSPhotoLibraryAddUsageDescription. */
+static NSString* NativeRelay_saveToAlbum(NSString* path, int* outCode) {
+    if (path.length == 0) { *outCode = 0; return @"empty path"; }
+    NSURL* fileURL = [NSURL fileURLWithPath:path];
+    BOOL isVideo = NativeRelay_isVideoPath(path);
+
+    NSError* error = nil;
+    BOOL ok = [PHPhotoLibrary.sharedPhotoLibrary performChangesAndWait:^{
+        if (isVideo) {
+            [PHAssetChangeRequest creationRequestForAssetFromVideoAtFileURL:fileURL];
+        } else {
+            [PHAssetChangeRequest creationRequestForAssetFromImageAtFileURL:fileURL];
+        }
+    } error:&error];
+
+    if (!ok) { *outCode = 0; return error.localizedDescription ?: @"save failed"; }
+    *outCode = 1;
+    return nil;
+}
+
 /* Dispatch a command to a built-in capability. Returns the result text/json (or nil) and sets
  * *outCode. Unknown commands echo so the template stays usable for custom commands. */
 static NSString* NativeRelay_handle(int command, NSString* payload, int* outCode) {
@@ -127,8 +205,10 @@ static NSString* NativeRelay_handle(int command, NSString* payload, int* outCode
         case RelayCommandGetNetworkStatus: return NativeRelay_networkStatus();
         case RelayCommandVibrate:          return NativeRelay_vibrate(payload, outCode);
         case RelayCommandOpenSettings:     return NativeRelay_openSettings(payload, outCode);
+        case RelayCommandGetLocationOnce:  return NativeRelay_locationOnce(outCode);
+        case RelayCommandSaveToAlbum:      return NativeRelay_saveToAlbum(payload, outCode);
         default:
-            return payload ?: @"";  // commands 1–6 arrive in later batches
+            return payload ?: @"";  // commands 1, 3, 5, 6 arrive in later batches
     }
 }
 

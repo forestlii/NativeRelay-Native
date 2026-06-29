@@ -33,7 +33,7 @@ iOS 没有包命名空间（C 符号是全局的），所以同样的两层用**
 | cmd | 能力 | payload(输入) | code(返回) | data(返回) | 层 | iOS | Android |
 |---|---|---|---|---|---|---|---|
 | 1 | **RequestPermission** 权限请求 | 权限名：`camera`/`microphone`/`photos`/`location`/`notification` | 1=授权, 0=拒绝, 2=受限 | 状态文本 | **绑定**（Android 需 Activity） | 各框架授权 API | `ActivityCompat.requestPermissions` |
-| 2 | **GetLocationOnce** 一次定位 | null（或精度提示） | 1=ok, 0=拒绝/失败, Timeout | json `{lat,lng,acc}` | 干净 | `CLLocationManager`（一次） | `FusedLocationProviderClient` |
+| 2 | **GetLocationOnce** 一次定位 | null（或精度提示） | 1=ok, 0=拒绝/失败, Timeout | json `{lat,lng,acc}` | 干净 | `CLLocationManager`（一次） | `LocationManager`（系统；**非** Fused——避免 Play Services 依赖） |
 | 3 | **PickMedia** 选图/视频 | `image` / `video` | 1=选中, 0=取消 | 文件路径（拷进沙盒） | **绑定**（弹选择器） | `PHPickerViewController` | Photo Picker / `ACTION_PICK` |
 | 4 | **SaveToAlbum** 存相册 | 要保存的文件路径 | 1=已存, 0=失败 | 资源 id（可选） | 干净 | `PHPhotoLibrary` | `MediaStore` |
 | 5 | **CapturePhoto** 拍照 | null（或 `front`/`back`） | 1=拍到, 0=取消 | 文件路径 | **绑定**（弹相机） | `UIImagePickerController` | `ACTION_IMAGE_CAPTURE` |
@@ -53,6 +53,10 @@ iOS 没有包命名空间（C 符号是全局的），所以同样的两层用**
 
 - **权限是前置条件，不会自动给。** `GetLocationOnce` 需定位权限，`PickMedia`/`SaveToAlbum` 需相册权限，
   `CapturePhoto`/`ScanCode` 需相机权限。先调 `RequestPermission`；这些能力在缺权限时返回 `0`。
+- **敏感权限不写进库 manifest。** `.aar` manifest 只带 `VIBRATE`（无害、install-time）。定位
+  （`ACCESS_FINE/COARSE_LOCATION`）和 Q 以下的相册写入（`WRITE_EXTERNAL_STORAGE`，`maxSdkVersion=28`）
+  是可选 + 敏感的，由你按需加进*你 app 的* manifest。iOS 需对应 Info.plist 用途串
+  （`NSLocationWhenInUseUsageDescription`、`NSPhotoLibraryAddUsageDescription`）。
 - **需 Activity 的能力（1 的安卓侧、3、5、6）要 Unity Activity。** 安卓上运行时权限请求和
   `startActivityForResult` 必须在 `Activity` 上发起、并接收结果回调——所以绑定层去取
   `UnityPlayer.currentActivity`。这正是 `.unity` 子包存在的理由。
@@ -69,7 +73,8 @@ iOS 没有包命名空间（C 符号是全局的），所以同样的两层用**
 1. **批次 A —— 干净且轻量（Android 当场可验证）：✅ 已完成。** 7 设备信息、8 网络、9 振动、
    10 跳设置(app/通知)。无 Activity、无权限弹窗。Android 已实现 + `assembleRelease` 验证；
    iOS 参考源码已写（需 Mac）。
-2. **批次 B —— 干净但需权限：** 2 一次定位、4 存相册。
+2. **批次 B —— 干净但需权限：✅ 已完成。** 2 一次定位（系统 `LocationManager`）、4 存相册（`MediaStore`）。
+   Android 已实现 + `assembleRelease` 验证；iOS 参考（CoreLocation / Photos）已写——需 Mac。
 3. **批次 C —— 绑定层（Activity/VC + 权限）：** 1 权限请求、3 选图、5 拍照、6 扫码。
    引入 `.unity` 子包 + `currentActivity` 管线。扫码最重（相机预览 UI）。
 
@@ -81,7 +86,9 @@ iOS 没有包命名空间（C 符号是全局的），所以同样的两层用**
 - **批 A —— 已完成。** 设备信息 / 网络 / 振动 / 跳设置：Android 已实现并 **`assembleRelease` 验证**
   （能力类已进 `.aar`、`VIBRATE` 已并入 manifest、minSdk 23）；iOS 参考实现已写——**需 macOS/Xcode
   构建验证**。命令码由 `tools/codegen` 生成到四端。
-- **批 B / C —— 待做**（定位、存相册，然后是需 Activity 的 权限/选图/拍照/扫码）。
+- **批 B —— 已完成。** 一次定位（系统 `LocationManager`，无 Play Services）/ 存相册（`MediaStore`）：
+  Android 已实现并 `assembleRelease` 验证；iOS 参考（CoreLocation / Photos）已写——需 macOS/Xcode。
+- **批 C —— 待做**（需 Activity：权限请求 / 选图 / 拍照 / 扫码 + `.unity` 层）。
 
 ## 许可
 
