@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Empty on purpose: this library ships only the relay class, no components/permissions.
+     The package identity comes from `namespace` in build.gradle (AGP 8+). -->
+<manifest />
