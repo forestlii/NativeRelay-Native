@@ -7,7 +7,9 @@ android {
     compileSdk 34
 
     defaultConfig {
-        minSdk 21
+        // 23 (Android 6.0): runtime permissions — needed by the capability set — start at API 23,
+        // and 23 is effectively universal now, so it's the natural floor.
+        minSdk 23
         // These rules ride along inside the .aar so the consuming Unity app keeps our
         // reflected JNI symbols even when it shrinks with R8.
         consumerProguardFiles 'consumer-rules.pro'

@@ -17,9 +17,9 @@ com.likeon.nativerelay.unity    ← 绑定层：只放需要 UnityPlayer.current
 iOS 没有包命名空间（C 符号是全局的），所以同样的两层用**函数名前缀 + 文件/target**表达：
 干净层 = `NativeRelay_*`，绑定层 = `NativeRelayUnity_*`。
 
-**为什么这套跟 NativeRelay 合得来：** `NativeRelayChannel.java` 已经走 JNI 代理回调
-（`ResultCallback`），**不是** `UnityPlayer.UnitySendMessage`——它只 import `java.util.concurrent`，
-零 Unity。所以能力实现这层根本不必认识 Unity。绑定层**只在**某能力必须拿到 Unity 的 `Activity` /
+**为什么这套跟 NativeRelay 合得来：** `NativeRelayChannel.java` 走 JNI 代理回调
+（`ResultCallback`），**不是** `UnityPlayer.UnitySendMessage`——它**没有任何 Unity import**（干净层
+能力只用 `android.*`）。所以能力实现这层根本不必认识 Unity。绑定层**只在**某能力必须拿到 Unity 的 `Activity` /
 一个 `UIViewController`（弹系统 UI，或某 SDK 要 `currentActivity`）时才出现。
 
 **归层判据：** *它要不要弹系统 UI / 走 Activity result / 拿 `currentActivity`？* → **绑定层**；
@@ -66,8 +66,9 @@ iOS 没有包命名空间（C 符号是全局的），所以同样的两层用**
 
 按"这台 Windows 机器上能不能真构建+验证"排序（Android 本机能构建；iOS 需 Mac）：
 
-1. **批次 A —— 干净且轻量（Android 当场可验证）：** 7 设备信息、8 网络、9 振动、
-   10 跳设置(app/通知)。无 Activity、无权限弹窗。Android → 像之前一样真出 `.aar`；iOS → 参考源码。
+1. **批次 A —— 干净且轻量（Android 当场可验证）：✅ 已完成。** 7 设备信息、8 网络、9 振动、
+   10 跳设置(app/通知)。无 Activity、无权限弹窗。Android 已实现 + `assembleRelease` 验证；
+   iOS 参考源码已写（需 Mac）。
 2. **批次 B —— 干净但需权限：** 2 一次定位、4 存相册。
 3. **批次 C —— 绑定层（Activity/VC + 权限）：** 1 权限请求、3 选图、5 拍照、6 扫码。
    引入 `.unity` 子包 + `currentActivity` 管线。扫码最重（相机预览 UI）。
@@ -77,7 +78,10 @@ iOS 没有包命名空间（C 符号是全局的），所以同样的两层用**
 
 ## 状态
 
-**仅设计 —— 尚未实现。** 契约确认后开始实现。
+- **批 A —— 已完成。** 设备信息 / 网络 / 振动 / 跳设置：Android 已实现并 **`assembleRelease` 验证**
+  （能力类已进 `.aar`、`VIBRATE` 已并入 manifest、minSdk 23）；iOS 参考实现已写——**需 macOS/Xcode
+  构建验证**。命令码由 `tools/codegen` 生成到四端。
+- **批 B / C —— 待做**（定位、存相册，然后是需 Activity 的 权限/选图/拍照/扫码）。
 
 ## 许可
 

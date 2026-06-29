@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Empty on purpose: this library ships only the relay class, no components/permissions.
-     The package identity comes from `namespace` in build.gradle (AGP 8+). -->
-<manifest />
+<!-- The package identity comes from `namespace` in build.gradle (AGP 8+). VIBRATE is a normal
+     (install-time) permission, auto-granted; it merges into the consuming app's manifest. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.VIBRATE" />
+</manifest>

@@ -19,6 +19,14 @@
  */
 package com.likeon.nativerelay;
 
+import android.content.Context;
+
+import com.likeon.nativerelay.device.DeviceInfo;
+import com.likeon.nativerelay.haptic.Haptics;
+import com.likeon.nativerelay.internal.AppContext;
+import com.likeon.nativerelay.net.NetworkStatus;
+import com.likeon.nativerelay.system.SettingsOpener;
+
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -68,8 +76,8 @@ public class NativeRelayChannel {
                     return;
                 }
                 try {
-                    String data = handle(command, payload); // <-- your actual native work
-                    fire(seed, 1, data);                    // success (your own success code)
+                    RelayResult result = handle(command, payload);
+                    fire(seed, result.code, result.data);
                 } catch (Throwable t) {
                     fire(seed, 0, t.getMessage());          // failure (your own error code)
                 }
@@ -78,20 +86,29 @@ public class NativeRelayChannel {
     }
 
     /**
-     * Plug your real native work here, dispatched by {@code command}. Return the result as
-     * text, or — for big binary like audio/image — save it to a file natively and return the
-     * PATH (load it Unity-side). Do NOT push raw bytes through {@code data}.
+     * Dispatch a command to a built-in capability, returning {@code (code, data)}. Command codes
+     * come from the generated {@link RelayCommand} (tools/codegen). Commands 1–6 (permission /
+     * location / media / album / camera / scan) arrive in later batches; an unknown command echoes
+     * so the template stays usable for your own custom commands. For big binary (audio/image),
+     * return a file PATH as data, not raw bytes.
      */
-    private String handle(int command, String payload) throws Exception {
+    private RelayResult handle(int command, String payload) throws Exception {
         switch (command) {
-            // Example — wire your own commands here. The int values are defined by the caller
-            // (a C# enum cast to int); this side just switches on them.
-            //
-            // case 1: return startRecording(payload);   // e.g. return a recorded file path
-            // case 2: return recognize(payload);        // e.g. return recognized text
+            case RelayCommand.GET_DEVICE_INFO:    return RelayResult.ok(DeviceInfo.get(appContext()));
+            case RelayCommand.GET_NETWORK_STATUS: return RelayResult.ok(NetworkStatus.get(appContext()));
+            case RelayCommand.VIBRATE:            return Haptics.vibrate(appContext(), payload);
+            case RelayCommand.OPEN_SETTINGS:      return SettingsOpener.open(appContext(), payload);
             default:
-                return payload != null ? payload : ""; // echo by default (handy for smoke tests)
+                return RelayResult.ok(payload != null ? payload : "");
         }
+    }
+
+    private static Context appContext() {
+        Context c = AppContext.get();
+        if (c == null) {
+            throw new IllegalStateException("no application Context; inject via AppContext.set(...)");
+        }
+        return c;
     }
 
     private void fire(long seed, int code, String data) {

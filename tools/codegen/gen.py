@@ -108,11 +108,18 @@ def gen_objc(spec: dict) -> str:
     return "\n".join(lines)
 
 
+# Each target emits straight into the place that actually compiles it, so there's no second
+# copy to keep in sync. Java -> the Android module; Obj-C -> ios/Source; C#/Lua have no host
+# project in this repo, so they land in generated/ as a reference to copy into your Unity app.
+REPO = HERE.parent.parent
+ANDROID_PKG = REPO / "android" / "nativerelay" / "src" / "main" / "java" / "com" / "likeon" / "nativerelay"
+IOS_SRC = REPO / "ios" / "Source"
+
 TARGETS = {
-    "RelayCommand.cs": gen_csharp,
-    "RelayCommand.java": gen_java,
-    "relay_command.lua": gen_lua,
-    "RelayCommand.h": gen_objc,
+    "RelayCommand.cs": (gen_csharp, OUT),
+    "relay_command.lua": (gen_lua, OUT),
+    "RelayCommand.java": (gen_java, ANDROID_PKG),
+    "RelayCommand.h": (gen_objc, IOS_SRC),
 }
 
 
@@ -123,24 +130,24 @@ def main() -> int:
     args = ap.parse_args()
 
     spec = load_spec()
-    wanted = {name: fn(spec) for name, fn in TARGETS.items()}
+    wanted = {name: (fn(spec), outdir) for name, (fn, outdir) in TARGETS.items()}
 
     if args.check:
         stale = []
-        for name, content in wanted.items():
-            path = OUT / name
+        for name, (content, outdir) in wanted.items():
+            path = outdir / name
             if not path.exists() or path.read_text(encoding="utf-8") != content:
                 stale.append(name)
         if stale:
             print("STALE (run `python gen.py`): " + ", ".join(stale), file=sys.stderr)
             return 1
-        print("OK: generated/ is up to date.")
+        print("OK: generated files are up to date.")
         return 0
 
-    OUT.mkdir(exist_ok=True)
-    for name, content in wanted.items():
-        (OUT / name).write_text(content, encoding="utf-8", newline="\n")
-        print(f"wrote generated/{name}")
+    for name, (content, outdir) in wanted.items():
+        outdir.mkdir(parents=True, exist_ok=True)
+        (outdir / name).write_text(content, encoding="utf-8", newline="\n")
+        print(f"wrote {(outdir / name).relative_to(REPO)}")
     return 0
 
 

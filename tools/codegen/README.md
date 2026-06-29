@@ -17,8 +17,13 @@ commands.json ──gen.py──┤            generated/RelayCommand.java  (Jav
                         └──────────► generated/RelayCommand.h     (Obj-C NS_ENUM)
 ```
 
-> These are **placeholder** commands. Keep your real, business-named command list in your own
-> private project — this repo only ships the scaffold + an example.
+> `commands.json` now holds NativeRelay-Native's **built-in capability codes** (generic system
+> capabilities — device info, vibrate, …). Your own *business* commands still belong in your
+> private project; add them to your own copy of this scaffold.
+
+> Where the generated files land: Java → the Android module, Obj-C → `ios/Source/`, C# & Lua →
+> `generated/` (no host project here — copy those into your Unity app). The `--check` guard
+> compares all four against the source.
 
 ## Use
 

@@ -15,7 +15,11 @@ commands.json ──gen.py──┤            generated/RelayCommand.java  (Jav
                         └──────────► generated/RelayCommand.h     (Obj-C NS_ENUM)
 ```
 
-> 这些是**占位**命令。你真实的、带业务命名的命令清单请放在你自己的私有工程里——本仓库只提供脚手架 + 一份示例。
+> `commands.json` 现在装的是 NativeRelay-Native 的**内置能力命令码**（通用系统能力——设备信息、振动…）。
+> 你自己的*业务*命令仍属于你的私有工程；在你自己那份脚手架里加。
+
+> 生成物落点：Java → Android 模块，Obj-C → `ios/Source/`，C# 和 Lua → `generated/`（本仓无宿主工程，
+> 拷进你的 Unity 工程）。`--check` 会拿四端跟真相源比对。
 
 ## 使用
 

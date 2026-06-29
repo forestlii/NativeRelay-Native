@@ -19,9 +19,9 @@ com.likeon.nativerelay.unity    ← BINDING layer: only code that needs UnityPla
 iOS has no package namespace (C symbols are global), so the same split is expressed by
 **function-name prefix + file/target**: clean = `NativeRelay_*`, binding = `NativeRelayUnity_*`.
 
-**Why this works with NativeRelay:** `NativeRelayChannel.java` already calls back through a JNI
-proxy (`ResultCallback`), **not** `UnityPlayer.UnitySendMessage` — it imports only
-`java.util.concurrent`, zero Unity. So the ability implementation never has to know about Unity.
+**Why this works with NativeRelay:** `NativeRelayChannel.java` calls back through a JNI proxy
+(`ResultCallback`), **not** `UnityPlayer.UnitySendMessage` — it has **no Unity imports** (clean-layer
+capabilities use `android.*` only). So the ability implementation never has to know about Unity.
 The binding layer exists **only** when a capability must reach the Unity `Activity` / a
 `UIViewController` (to present system UI or to satisfy an SDK that needs `currentActivity`).
 
@@ -74,9 +74,9 @@ Core (an SDK)** → that path belongs to the binding layer; in-app review is not
 Ordered by "can I really build & verify it on this Windows machine" (Android builds here; iOS
 needs a Mac):
 
-1. **Batch A — clean & light (Android verifiable now):** 7 DeviceInfo, 8 Network, 9 Vibrate,
-   10 OpenSettings(app/notification). No Activity, no permission prompts. Android → real `.aar`
-   build like before; iOS → reference source.
+1. **Batch A — clean & light (Android verifiable now): ✅ DONE.** 7 DeviceInfo, 8 Network,
+   9 Vibrate, 10 OpenSettings(app/notification). No Activity, no permission prompts. Android
+   implemented + `assembleRelease`-verified; iOS reference source written (needs a Mac).
 2. **Batch B — clean but permission-gated:** 2 GetLocationOnce, 4 SaveToAlbum.
 3. **Batch C — binding layer (Activity/VC + permission):** 1 RequestPermission, 3 PickMedia,
    5 CapturePhoto, 6 ScanCode. Introduces the `.unity` sub-package + `currentActivity` plumbing.
@@ -87,7 +87,11 @@ ObjC → Android `assembleRelease` to verify it compiles → commit. iOS stays r
 
 ## Status
 
-**Design only — not implemented yet.** Implementation starts after this contract is confirmed.
+- **Batch A — done.** GetDeviceInfo / GetNetworkStatus / Vibrate / OpenSettings: Android
+  implemented and **`assembleRelease`-verified** (capability classes in the `.aar`, `VIBRATE` in
+  the merged manifest, minSdk 23); iOS reference implementation written — **needs macOS/Xcode to
+  build/verify**. Command codes generated into all four ends by `tools/codegen`.
+- **Batch B / C — pending** (location, album, then the Activity-bound permission/picker/camera/scan).
 
 ## License
 

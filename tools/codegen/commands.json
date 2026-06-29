@@ -1,11 +1,18 @@
 {
-  "_comment": "Single source of truth for NativeRelay command codes. EDIT THIS, then run gen.py. These are PLACEHOLDER example commands — keep your real (business-named) list in your own private project, not here.",
+  "_comment": "NativeRelay-Native built-in capability command codes — the single source of truth. EDIT THIS, then run gen.py. Your own business commands stay in your private project; these are generic system capabilities shipped by NativeRelay-Native.",
   "enumName": "RelayCommand",
-  "csharpNamespace": "Likeon.NativeRelay.Sample",
-  "javaPackage": "com.likeon.nativerelay.sample",
+  "csharpNamespace": "Likeon.NativeRelay",
+  "javaPackage": "com.likeon.nativerelay",
   "commands": [
-    { "name": "StartRecord", "value": 1, "desc": "Start recording (example placeholder)" },
-    { "name": "StopRecord",  "value": 2, "desc": "Stop recording" },
-    { "name": "Recognize",   "value": 3, "desc": "Run recognition on the payload" }
+    { "name": "RequestPermission", "value": 1,  "desc": "Request a runtime permission (payload = camera/microphone/photos/location/notification)" },
+    { "name": "GetLocationOnce",   "value": 2,  "desc": "One-shot location; data = json {lat,lng,acc}" },
+    { "name": "PickMedia",         "value": 3,  "desc": "Pick image/video from the library; data = file path" },
+    { "name": "SaveToAlbum",       "value": 4,  "desc": "Save a file to the photo album" },
+    { "name": "CapturePhoto",      "value": 5,  "desc": "Capture a photo with the system camera; data = file path" },
+    { "name": "ScanCode",          "value": 6,  "desc": "Scan a QR/barcode; data = scanned string" },
+    { "name": "GetDeviceInfo",     "value": 7,  "desc": "Device/system info; data = json" },
+    { "name": "GetNetworkStatus",  "value": 8,  "desc": "Network status; data = wifi/cellular/ethernet/none" },
+    { "name": "Vibrate",           "value": 9,  "desc": "Vibrate/haptic (payload = light/medium/heavy or ms:<n>)" },
+    { "name": "OpenSettings",      "value": 10, "desc": "Open app/notification settings (payload = app/notification/store-review)" }
   ]
 }
