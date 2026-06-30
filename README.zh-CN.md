@@ -76,6 +76,12 @@
   Objective-C** 四端的 `int` 命令码，让多端项目不再手工对齐；含 `--check` CI guard。
   详见 [tools/codegen/README.zh-CN.md](tools/codegen/README.zh-CN.md)。
 
+## 示例
+
+- [`examples/xlua/`](examples/xlua/) —— 用 **Lua**（经 [xLua](https://github.com/Tencent/xLua)）
+  完整驱动桥：Lua 薄封装 + 必需的 xLua 生成配置 + 纯 Lua 业务样例（成功/失败/错误码处理全在
+  Lua）。参考样板——不在本仓编译。详见 [examples/xlua/README.zh-CN.md](examples/xlua/README.zh-CN.md)。
+
 ## 许可
 
 MIT © 2026 Likeon

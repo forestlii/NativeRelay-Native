@@ -79,6 +79,13 @@ details and the contract-alignment notes.
   Objective-C** from one `commands.json`, so a multi-platform project never hand-aligns them
   again. Includes a `--check` CI guard. See [tools/codegen/README.md](tools/codegen/README.md).
 
+## Examples
+
+- [`examples/xlua/`](examples/xlua/) — drive the bridge entirely from **Lua** via
+  [xLua](https://github.com/Tencent/xLua): a thin Lua wrapper + the required xLua gen config +
+  a pure-Lua business sample (all success/failure/error-code handling in Lua). Reference
+  sample — not compiled in this repo. See [examples/xlua/README.md](examples/xlua/README.md).
+
 ## License
 
 MIT © 2026 Likeon
